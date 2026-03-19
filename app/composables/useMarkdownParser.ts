@@ -3,6 +3,7 @@ import { marked } from 'marked'
 export interface ParsedStep {
   title: string
   content: string
+  stage?: string
 }
 
 export interface ParsedPlan {
@@ -24,23 +25,33 @@ export function parsePlanStructure(markdown: string): ParsedPlan {
   
   let currentRegion: 'intro' | 'step' | 'outro' = 'intro'
   let currentStepIndex = -1
+  let currentStage = ''
   
   for (const line of lines) {
-    // 探测 Step 分割线
-    if (line.match(/^###\s*Step\s*\d+[:：]/i) || line.match(/^###\s*第.+步/)) {
+    // 探测阶段 (##) 也包含带表情符号的情况
+    const stageMatch = line.match(/^##\s*.*(第.+阶段|第.+部分|模块|Section).*/i) || line.match(/^##\s*第.+阶段/i)
+    if (stageMatch) {
+      currentStage = line.replace(/^##\s*/, '').trim()
+      if (currentRegion === 'intro') {
+        result.intro += `\n${line}\n`
+      }
+      continue
+    }
+
+    // 探测课时/步骤
+    if (line.match(/^###\s*(Step\s*\d+|第.+步|课时\s*\d+)[:：]?/i) || line.match(/^###\s+/)) {
       currentRegion = 'step'
       currentStepIndex++
-      // 提取核心标题
-      let cleanTitle = line.replace(/^###\s*/, '')
       result.steps.push({
-        title: cleanTitle,
-        content: ''
+        title: line.replace(/^###\s*/, '').trim(),
+        content: '',
+        stage: currentStage
       })
       continue
     }
     
-    // 探测结语/代码区分割线（兼容中英文与图标）
-    if (line.match(/^##\s*💻/i) || line.match(/^##\s*(最小)?可运行/)) {
+    // 探测结语/项目区
+    if (line.match(/^##\s*💻/i) || line.match(/^##\s*(终极|实战)?(项目|总结|Conclusion)/) || line.match(/^##\s*总结/)) {
       currentRegion = 'outro'
       result.outro += line + '\n'
       continue
@@ -58,6 +69,19 @@ export function parsePlanStructure(markdown: string): ParsedPlan {
       result.outro += line + '\n'
     }
   }
+
+  // 需求：将实战项目和总结单独新增一个课时
+  if (result.outro) {
+    result.steps.push({
+      title: '🏗️ 实战演练与课程总结',
+      content: result.outro,
+      stage: '总成阶段'
+    })
+    result.outro = '' 
+  }
+
+  // 清除 intro 中可能残留的第一个阶段标题，因为 LearningStep 顶部已经有 Badge 了
+  result.intro = result.intro.replace(/^##\s*.*阶段.*\n?/m, '').trim()
   
   return result
 }

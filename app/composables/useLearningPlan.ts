@@ -94,6 +94,8 @@ export const useLearningPlan = () => {
       }
 
       planStore.setStatus('done')
+      // 完成后自动存档
+      planStore.archiveCurrentPlan()
     } catch (err: any) {
       console.error('Workflow error:', err)
       planStore.setError(err.message || '未知错误导致生成失败')

@@ -99,6 +99,30 @@ export interface PlanState {
 
   // 学习计划（流式追加）
   planMarkdown: string
+
+  // 用户随堂笔记：{ [stepTitle]: noteContent }
+  notes: Record<string, string>
+
+  // 历史保存的计划列表
+  savedPlans: SavedPlan[]
+  // 当前正在加载/查看的计划 ID
+  currentPlanId: string | null
+
+  // UI 状态
+  leftSidebarOpen: boolean
+  rightSidebarOpen: boolean
+  activeStepIndex: number
+  expandedContent: Record<string, string>
+}
+
+// ==================== 已保存的计划条目 ====================
+export interface SavedPlan {
+  id: string
+  form: StudyFormInput
+  planMarkdown: string
+  notes: Record<string, string>
+  createdAt: number
+  updatedAt: number
 }
 
 // ==================== 学习进度（Phase 2）====================

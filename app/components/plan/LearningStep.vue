@@ -3,113 +3,185 @@ import { ref, computed } from 'vue'
 import MarkdownBlocks from './MarkdownBlocks.vue'
 import { useProgressStore } from '../../stores/progressStore'
 import { usePlanStore } from '../../stores/planStore'
+import { useSettingStore } from '../../stores/settingStore'
 
 const props = defineProps<{
   index: number
   title: string
   content: string
+  stage?: string
 }>()
-
-const isExpanded = ref(true) // 默认展开
 
 const progressStore = useProgressStore()
 const planStore = usePlanStore()
+const settingStore = useSettingStore()
 
-// 当其所属的技术分支与标题名一致时判断为学过
 const isLearned = computed(() => {
   return progressStore.isStepCompleted(planStore.form.techName, props.title)
 })
 
+const isGeneratingDetails = ref(false)
+const selectionMenu = ref({ show: false, x: 0, y: 0, text: '' })
+
 const handleLearn = async (e: Event) => {
-  e.stopPropagation() // 防止触发折叠事件
+  e.stopPropagation()
+  // 先执行状态切换
   progressStore.toggleStep(planStore.form.techName, props.title)
   
-  if (isLearned.value) {
-    // 撒花庆祝效果 - 通过原生 DOM 拉取 CDN，彻底隔离 SSR 引擎解析
-    if (typeof window !== 'undefined') {
-      const runConfetti = () => {
-        // @ts-ignore
-        if (window.confetti) {
-          // @ts-ignore
-          window.confetti({ particleCount: 80, spread: 60, origin: { y: 0.8 }, colors: ['#22c55e', '#3b82f6', '#8b5cf6'] })
-        }
+  // 此时 isLearned.value 应该是最新的响应式结果
+  if (isLearned.value) { // 意味着现在状态是「已掌握」
+    setTimeout(() => {
+      const planStructure = planStore.planMarkdown ? planStore.parsedPlan : null
+      if (planStructure && props.index < planStructure.steps.length - 1) {
+        planStore.setActiveStep(props.index + 1)
       }
-
-      // @ts-ignore
-      if (window.confetti) {
-        runConfetti()
-      } else {
-        const script = document.createElement('script')
-        script.src = 'https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js'
-        script.onload = () => runConfetti()
-        document.head.appendChild(script)
-      }
-    }
-    // 自动折叠本章，逼迫往下走
-    isExpanded.value = false
+    }, 450) // 缩短一点，让体感更灵敏
   }
+}
+
+const handleExpandStep = async () => {
+  if (isGeneratingDetails.value) return
+  isGeneratingDetails.value = true
+  try {
+    await planStore.expandStepAction(
+      props.title, 
+      props.content, 
+      planStore.form.techName, 
+      settingStore.deepseekKey
+    )
+  } finally {
+    isGeneratingDetails.value = false
+  }
+}
+
+const handleMouseUp = (e: MouseEvent) => {
+  const selection = window.getSelection()
+  const text = selection?.toString().trim()
+  
+  if (text && text.length > 0) {
+    selectionMenu.value = {
+      show: true,
+      x: e.pageX,
+      y: e.pageY - 40,
+      text: text
+    }
+  } else {
+    selectionMenu.value.show = false
+  }
+}
+
+const askAssistant = () => {
+  alert(`正在请教助教解释「${selectionMenu.value.text}」... (功能连接中)`)
+  selectionMenu.value.show = false
 }
 </script>
 
 <template>
-  <div class="border border-gray-200 rounded-2xl bg-white shadow-sm overflow-hidden mb-4 transition-all duration-300 hover:shadow-md"
-       :class="{ 'opacity-80 grayscale-[20%]': isLearned }">
-    <!-- Header（可折叠点按区） -->
-    <button 
-      @click="isExpanded = !isExpanded"
-      class="w-full px-5 py-4 flex items-center justify-between bg-gray-50/50 hover:bg-brand-50/50 transition-colors focus:outline-none"
-    >
-      <div class="flex items-center gap-3 text-left">
-        <!-- 序列圆角标识牌 -->
-        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors"
-             :class="isLearned ? 'bg-green-100 text-green-700' : 'bg-brand-100 text-brand-700'">
-          <svg v-if="isLearned" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
-          </svg>
-          <span v-else>{{ index + 1 }}</span>
+  <div 
+    :id="'step-' + index" 
+    class="border border-gray-200 rounded-2xl bg-white shadow-sm overflow-hidden mb-4 transition-all duration-300"
+    :class="{ 'opacity-80 grayscale-[20%]': isLearned }"
+    @mouseup="handleMouseUp"
+  >
+    <!-- Stage Indicator Badge -->
+    <div v-if="stage" class="px-5 py-2.5 bg-brand-50 border-b border-brand-100/50 flex items-center justify-between">
+       <div class="flex items-center gap-2">
+          <span class="flex h-2 w-2 rounded-full bg-brand-500"></span>
+          <span class="text-[10px] font-black text-brand-600 uppercase tracking-widest">{{ stage }}</span>
+       </div>
+       <div class="text-[10px] text-brand-300 font-bold tracking-tighter cursor-default select-none">MILESTONE</div>
+    </div>
+
+    <!-- Header -->
+    <div class="px-5 py-4 flex items-center justify-between bg-gray-50/50">
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-sm flex items-center justify-center font-black text-xs"
+             :class="isLearned ? 'bg-green-100 text-green-700' : 'bg-brand-500 text-white shadow-sm'">
+          {{ index + 1 }}
         </div>
-        <!-- 纯干标题 -->
-        <h3 class="text-base sm:text-lg font-bold transition-colors"
-            :class="isLearned ? 'text-gray-500 line-through' : 'text-gray-900 group-hover:text-brand-700'">
-          {{ title }}
-        </h3>
+        <h3 class="font-bold text-gray-900">{{ title }}</h3>
       </div>
-      
-      <!-- 卡片开合指示箭头 -->
-      <div class="text-gray-400 transition-transform duration-300 flex-shrink-0 ml-4" :class="{ 'rotate-180': isExpanded }">
-        <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-        </svg>
+      <div class="flex items-center gap-2">
+         <span v-if="isLearned" class="text-[10px] font-bold text-green-600 px-2 py-0.5 bg-green-50 rounded-full">已掌握</span>
       </div>
-    </button>
+    </div>
 
-    <!-- Content (高能折叠排版展现动画区，使用 Grid 强制排开) -->
-    <div 
-      class="grid transition-all duration-300 ease-in-out"
-      :class="isExpanded ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'"
-    >
-      <div class="overflow-hidden">
-        <div class="px-5 pb-6 pt-2 border-t border-gray-100/50">
-          <!-- 递归调入 Markdown 分块解析核心 -->
-          <MarkdownBlocks :content="content" />
+    <!-- Content Area -->
+    <div class="px-6 py-6 border-t border-gray-100/50">
+      <!-- 原始大纲思路 -->
+      <div class="mb-8">
+        <h4 class="text-xs font-black text-gray-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+          <span class="w-1.5 h-1.5 bg-gray-200 rounded-full"></span>
+          本节学习大纲与思路
+        </h4>
+        <MarkdownBlocks :content="content" />
+      </div>
 
-          <!-- 完成本章的打卡器 -->
-          <div class="mt-8 flex justify-end items-center pt-4 border-t border-dashed border-gray-200">
-            <button 
-               @click.stop="handleLearn"
-               class="flex items-center gap-2 px-5 py-2.5 rounded-xl font-bold transition-all hover:scale-[1.02] active:scale-95 shadow-sm"
-               :class="isLearned 
-                 ? 'bg-gray-100 text-gray-500 hover:bg-gray-200 border border-gray-200'
-                 : 'bg-green-500 text-white hover:bg-green-400 hover:shadow-green-500/20'"
-            >
-              <svg v-if="!isLearned" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <!-- 扩充后的详细课件内容 -->
+      <div v-if="planStore.expandedContent[title]" class="mt-8 pt-8 border-t border-gray-100 animate-fade-in">
+        <h4 class="text-xs font-black text-brand-400 uppercase tracking-widest mb-6 flex items-center gap-2">
+          <span class="w-1.5 h-1.5 bg-brand-500 rounded-full"></span>
+          详细课件内容及案例
+        </h4>
+        <div class="bg-gray-50/30 rounded-2xl p-6 border border-gray-50 prose prose-brand max-w-none">
+          <MarkdownBlocks :content="planStore.expandedContent[title]" />
+        </div>
+      </div>
+
+      <!-- 动作条 -->
+      <div class="mt-10 flex flex-wrap items-center justify-between pt-6 border-t border-gray-100 gap-4">
+        <div class="flex items-center gap-3">
+          <button 
+             v-if="!planStore.expandedContent[title]"
+             @click="handleExpandStep"
+             :disabled="isGeneratingDetails"
+             class="group flex items-center gap-2 px-6 py-3 bg-brand-50 text-brand-700 rounded-xl font-bold hover:bg-brand-100 transition-all border border-brand-100 disabled:opacity-50"
+          >
+            <template v-if="isGeneratingDetails">
+              <div class="w-4 h-4 border-2 border-brand-500 border-t-transparent animate-spin rounded-full"></div>
+              <span>正在生成详细课件与代码...</span>
+            </template>
+            <template v-else>
+              <svg class="w-5 h-5 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
-              <span>{{ isLearned ? '撤销打卡 (需温习)' : '已经自测通过！下一步' }}</span>
-            </button>
-          </div>
+              <span>生成详细内容与案例</span>
+            </template>
+          </button>
+
+          <span class="text-xs text-gray-400 font-medium">💡 对思路不清晰？点击按钮由 AI 扩充具体代码和原理。</span>
         </div>
+
+        <button 
+           @click.stop="handleLearn"
+           class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all shadow-sm active:scale-95"
+           :class="isLearned 
+             ? 'bg-green-50 text-green-600 border border-green-100'
+             : 'bg-green-600 text-white hover:bg-green-500 hover:shadow-green-600/20'"
+        >
+          <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{{ isLearned ? '已通关' : '打卡学习' }}</span>
+        </button>
       </div>
+    </div>
+
+    <!-- 划词悬浮菜单 -->
+    <div 
+      v-if="selectionMenu.show" 
+      :style="{ left: selectionMenu.x + 'px', top: selectionMenu.y + 'px' }"
+      class="fixed z-[100] animate-bounce-in"
+    >
+      <button 
+        @click="askAssistant"
+        class="flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-lg shadow-2xl text-xs font-bold hover:bg-brand-600 transition-colors border border-white/20"
+      >
+        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+        </svg>
+        解释「{{ selectionMenu.text.substring(0, 10) }}{{ selectionMenu.text.length > 10 ? '...' : '' }}」
+      </button>
     </div>
   </div>
 </template>

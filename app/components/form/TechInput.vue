@@ -37,7 +37,7 @@ const handleKeydown = (e: KeyboardEvent) => {
         v-model="inputValue"
         @keydown="handleKeydown"
         class="block w-full pl-11 pr-4 py-4 text-lg text-gray-900 bg-white border-2 border-transparent shadow-sm rounded-2xl focus:outline-none focus:ring-4 focus:ring-brand-100 focus:border-brand-500 transition-all font-medium placeholder-gray-400"
-        placeholder="你想学什么技术的新版？如：Next.js 14、React 19"
+        placeholder="你想学什么？如：Next.js 14、Python 数据分析、乐理基础、股票技术分析"
         required
       />
     </div>

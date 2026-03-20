@@ -20,13 +20,17 @@ export const GOAL_OPTIONS: { value: GoalType; label: string }[] = [
   { value: 'interview', label: '面试备考' },
 ]
 
+// ==================== 枚举：应用方向 ====================
+export const DOMAIN_PRESETS = ['Web 应用', '数据分析', '移动端', '游戏开发', '嵌入式 / IoT', '自动化运维']
+
 // ==================== 表单输入结构 ====================
 export interface StudyFormInput {
-  techName: string       // 技术名称（必填），如 "Next.js 14"
-  oldVersion?: string    // （选填）我正在跟学的旧版本，如 "13"
-  level: LevelType       // 基础水平
-  goal: GoalType         // 学习目标
-  withRelated: boolean   // 是否需要关联技术推荐
+  techName: string
+  oldVersion?: string
+  level: LevelType
+  goal: GoalType
+  domain?: string    // （选填）应用方向，如 "电商平台"、"数据分析"
+  withRelated: boolean
 }
 
 // ==================== 文档抓取接口 ====================
@@ -121,6 +125,7 @@ export interface SavedPlan {
   form: StudyFormInput
   planMarkdown: string
   notes: Record<string, string>
+  expandedContent: Record<string, string>
   createdAt: number
   updatedAt: number
 }

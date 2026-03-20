@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
 import MarkdownBlocks from './MarkdownBlocks.vue'
 import { useProgressStore } from '../../stores/progressStore'
 import { usePlanStore } from '../../stores/planStore'
@@ -25,17 +25,15 @@ const selectionMenu = ref({ show: false, x: 0, y: 0, text: '' })
 
 const handleLearn = async (e: Event) => {
   e.stopPropagation()
-  // 先执行状态切换
   progressStore.toggleStep(planStore.form.techName, props.title)
   
-  // 此时 isLearned.value 应该是最新的响应式结果
-  if (isLearned.value) { // 意味着现在状态是「已掌握」
+  if (isLearned.value) {
     setTimeout(() => {
       const planStructure = planStore.planMarkdown ? planStore.parsedPlan : null
       if (planStructure && props.index < planStructure.steps.length - 1) {
         planStore.setActiveStep(props.index + 1)
       }
-    }, 450) // 缩短一点，让体感更灵敏
+    }, 450)
   }
 }
 
@@ -54,25 +52,78 @@ const handleExpandStep = async () => {
   }
 }
 
+// 用 mouseup 捕获选中文字，但只在内容区域内触发
 const handleMouseUp = (e: MouseEvent) => {
-  const selection = window.getSelection()
-  const text = selection?.toString().trim()
-  
-  if (text && text.length > 0) {
-    selectionMenu.value = {
-      show: true,
-      x: e.pageX,
-      y: e.pageY - 40,
-      text: text
+  // 如果点击的是划词菜单本身，不处理
+  const target = e.target as HTMLElement
+  if (target.closest('[data-selection-menu]')) return
+
+  // 延迟一帧，确保浏览器已完成选区更新
+  setTimeout(() => {
+    const selection = window.getSelection()
+    const text = selection?.toString().trim()
+    if (text && text.length > 2) {
+      selectionMenu.value = {
+        show: true,
+        x: e.clientX,
+        y: e.clientY - 48,
+        text,
+      }
     }
-  } else {
+  }, 10)
+}
+
+// 点击页面任意位置关闭菜单
+const handleGlobalClick = (e: MouseEvent) => {
+  const target = e.target as HTMLElement
+  if (!target.closest('[data-selection-menu]')) {
     selectionMenu.value.show = false
   }
+}
+
+// 选区清空时也关闭
+const handleSelectionChange = () => {
+  const selection = window.getSelection()
+  if (!selection || selection.toString().trim() === '') {
+    selectionMenu.value.show = false
+  }
+}
+
+onMounted(() => {
+  document.addEventListener('click', handleGlobalClick)
+  document.addEventListener('selectionchange', handleSelectionChange)
+})
+
+onUnmounted(() => {
+  document.removeEventListener('click', handleGlobalClick)
+  document.removeEventListener('selectionchange', handleSelectionChange)
+})
+
+const handleExportStep = () => {
+  const techName = planStore.form.techName
+  const outline = props.content
+  const expanded = planStore.expandedContent[props.title] || ''
+
+  let md = `# ${techName} — 课时 ${props.index + 1}：${props.title}\n\n`
+  if (props.stage) md += `> 所属阶段：${props.stage}\n\n`
+  md += `---\n\n## 学习大纲\n\n${outline}\n\n`
+  if (expanded) md += `---\n\n## 详细课件\n\n${expanded}\n\n`
+
+  const blob = new Blob([md], { type: 'text/markdown;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `${techName}_Step${props.index + 1}_${props.title.replace(/[^\w\u4e00-\u9fa5]/g, '_').substring(0, 30)}.md`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
 }
 
 const askAssistant = () => {
   alert(`正在请教助教解释「${selectionMenu.value.text}」... (功能连接中)`)
   selectionMenu.value.show = false
+  window.getSelection()?.removeAllRanges()
 }
 </script>
 
@@ -130,7 +181,7 @@ const askAssistant = () => {
 
       <!-- 动作条 -->
       <div class="mt-10 flex flex-wrap items-center justify-between pt-6 border-t border-gray-100 gap-4">
-        <div class="flex items-center gap-3">
+        <div class="flex items-center gap-3 flex-wrap">
           <button 
              v-if="!planStore.expandedContent[title]"
              @click="handleExpandStep"
@@ -149,7 +200,17 @@ const askAssistant = () => {
             </template>
           </button>
 
-          <span class="text-xs text-gray-400 font-medium">💡 对思路不清晰？点击按钮由 AI 扩充具体代码和原理。</span>
+          <!-- 导出当前课时 -->
+          <button
+            @click.stop="handleExportStep"
+            class="flex items-center gap-2 px-4 py-3 bg-white border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all shadow-sm text-sm"
+            title="导出当前课时为 Markdown"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            导出本课时
+          </button>
         </div>
 
         <button 
@@ -168,20 +229,23 @@ const askAssistant = () => {
     </div>
 
     <!-- 划词悬浮菜单 -->
-    <div 
-      v-if="selectionMenu.show" 
-      :style="{ left: selectionMenu.x + 'px', top: selectionMenu.y + 'px' }"
-      class="fixed z-[100] animate-bounce-in"
-    >
-      <button 
-        @click="askAssistant"
-        class="flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-lg shadow-2xl text-xs font-bold hover:bg-brand-600 transition-colors border border-white/20"
+    <Teleport to="body">
+      <div 
+        v-if="selectionMenu.show" 
+        data-selection-menu
+        :style="{ left: selectionMenu.x + 'px', top: selectionMenu.y + 'px' }"
+        class="fixed z-[200]"
       >
-        <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-        </svg>
-        解释「{{ selectionMenu.text.substring(0, 10) }}{{ selectionMenu.text.length > 10 ? '...' : '' }}」
-      </button>
-    </div>
+        <button 
+          @click.stop="askAssistant"
+          class="flex items-center gap-2 px-3 py-1.5 bg-gray-900 text-white rounded-lg shadow-2xl text-xs font-bold hover:bg-brand-600 transition-colors border border-white/20 select-none"
+        >
+          <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          解释「{{ selectionMenu.text.substring(0, 10) }}{{ selectionMenu.text.length > 10 ? '...' : '' }}」
+        </button>
+      </div>
+    </Teleport>
   </div>
 </template>

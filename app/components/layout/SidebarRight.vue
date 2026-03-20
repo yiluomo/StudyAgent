@@ -1,8 +1,29 @@
 <script setup lang="ts">
 import { usePlanStore } from '../../stores/planStore'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 const planStore = usePlanStore()
+
+// 新建笔记的标题输入
+const newNoteTitle = ref('')
+const showNewNoteInput = ref(false)
+
+const addNote = () => {
+  const title = newNoteTitle.value.trim()
+  if (!title) return
+  if (!planStore.notes[title]) {
+    planStore.updateNote(title, '')
+  }
+  newNoteTitle.value = ''
+  showNewNoteInput.value = false
+}
+
+const deleteNote = (title: string) => {
+  const updated = { ...planStore.notes }
+  delete updated[title]
+  planStore.$patch({ notes: updated })
+  planStore.saveAllToStorage()
+}
 
 const handleExportNotes = () => {
   const blob = new Blob([planStore.allNotesMarkdown], { type: 'text/markdown;charset=utf-8' })
@@ -20,7 +41,6 @@ const handleOrganize = () => {
   planStore.organizeNotes()
 }
 
-// 侧边栏所有笔记内容摘要
 const notesCount = computed(() => Object.keys(planStore.notes).length)
 </script>
 
@@ -43,24 +63,57 @@ const notesCount = computed(() => Object.keys(planStore.notes).length)
     </div>
 
     <!-- Notes List -->
-    <div class="flex-1 overflow-y-auto p-6 space-y-6">
+    <div class="flex-1 overflow-y-auto p-4 space-y-4">
       <div v-for="(note, title) in planStore.notes" :key="title" class="group">
-        <div class="flex items-center justify-between mb-2">
-           <h4 class="text-xs font-black text-gray-400 uppercase tracking-tighter">{{ title }}</h4>
+        <div class="flex items-center justify-between mb-1.5">
+          <h4 class="text-xs font-black text-gray-400 uppercase tracking-tighter truncate max-w-[200px]" :title="title as string">{{ title }}</h4>
+          <button @click="deleteNote(title as string)" class="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-50 hover:text-red-400 rounded text-gray-300 transition-all">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
         <textarea 
           :value="note"
           @input="e => planStore.updateNote(title as string, (e.target as HTMLTextAreaElement).value)"
-          class="w-full min-h-[100px] p-4 bg-gray-50/50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-brand-100 focus:border-brand-300 outline-none transition-all resize-y placeholder:text-gray-300"
-          placeholder="暂无感悟..."
+          class="w-full min-h-[90px] p-3 bg-gray-50/50 border border-gray-100 rounded-xl text-sm focus:ring-2 focus:ring-brand-100 focus:border-brand-300 outline-none transition-all resize-y placeholder:text-gray-300"
+          placeholder="记录你的想法..."
         ></textarea>
       </div>
 
-      <div v-if="notesCount === 0" class="flex flex-col items-center justify-center h-full opacity-30 select-none pointer-events-none">
-        <svg class="w-16 h-16 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <!-- 新建笔记输入区 -->
+      <div v-if="showNewNoteInput" class="animate-fade-in">
+        <input
+          v-model="newNoteTitle"
+          @keydown.enter="addNote"
+          @keydown.esc="showNewNoteInput = false"
+          autofocus
+          placeholder="笔记标题，按 Enter 确认..."
+          class="w-full px-3 py-2 text-sm border border-brand-300 rounded-xl outline-none focus:ring-2 focus:ring-brand-100 bg-white"
+        />
+        <div class="flex gap-2 mt-2">
+          <button @click="addNote" class="flex-1 py-1.5 bg-brand-500 text-white text-xs font-bold rounded-lg hover:bg-brand-600 transition-colors">确认</button>
+          <button @click="showNewNoteInput = false" class="flex-1 py-1.5 bg-gray-100 text-gray-600 text-xs font-bold rounded-lg hover:bg-gray-200 transition-colors">取消</button>
+        </div>
+      </div>
+
+      <!-- 新建按钮 -->
+      <button
+        v-if="!showNewNoteInput"
+        @click="showNewNoteInput = true"
+        class="w-full flex items-center justify-center gap-2 py-2.5 border border-dashed border-gray-200 text-gray-400 text-xs font-bold rounded-xl hover:border-brand-300 hover:text-brand-500 transition-colors"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+        </svg>
+        新建笔记
+      </button>
+
+      <div v-if="notesCount === 0 && !showNewNoteInput" class="flex flex-col items-center justify-center py-12 opacity-30 select-none pointer-events-none">
+        <svg class="w-12 h-12 mb-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
         </svg>
-        <p class="text-sm font-bold">笔记暂无归位</p>
+        <p class="text-sm font-bold">点击上方新建笔记</p>
       </div>
     </div>
 

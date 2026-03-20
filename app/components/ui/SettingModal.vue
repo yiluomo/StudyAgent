@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ref, onMounted } from 'vue'
 import { useSettingStore } from '../../stores/settingStore'
 
 const isOpen = ref(false)

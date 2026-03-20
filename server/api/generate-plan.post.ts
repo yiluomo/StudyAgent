@@ -34,6 +34,7 @@ export default defineEventHandler(async (event) => {
         oldVersion: body.oldVersion,
         level: body.level,
         goal: body.goal,
+        domain: body.domain,
         withRelated: body.withRelated,
         docContent: body.docContent,
       })

@@ -16,6 +16,7 @@ export const usePlanStore = defineStore('plan', {
       oldVersion: '',
       level: 'elementary',
       goal: 'quickstart',
+      domain: '',
       withRelated: false,
     },
 
@@ -120,6 +121,7 @@ export const usePlanStore = defineStore('plan', {
         form: { ...this.form },
         planMarkdown: this.planMarkdown,
         notes: { ...this.notes },
+        expandedContent: { ...this.expandedContent },
         createdAt: Date.now(),
         updatedAt: Date.now()
       }
@@ -142,14 +144,22 @@ export const usePlanStore = defineStore('plan', {
         this.form = { ...plan.form }
         this.planMarkdown = plan.planMarkdown
         this.notes = { ...plan.notes }
+        this.expandedContent = { ...(plan.expandedContent || {}) }
         this.status = 'done'
-        this.activeStepIndex = 0 // 切换计划时重置进度
+        this.activeStepIndex = 0
       }
     },
     
-    // 缓存扩充后的详细课件
+    // 缓存扩充后的详细课件，并同步到当前存档
     setExpandedContent(title: string, content: string) {
       this.expandedContent[title] = content
+      if (this.currentPlanId) {
+        const plan = this.savedPlans.find(p => p.id === this.currentPlanId)
+        if (plan) {
+          plan.expandedContent = { ...(plan.expandedContent || {}), [title]: content }
+          plan.updatedAt = Date.now()
+        }
+      }
       this.saveAllToStorage()
     },
 
@@ -160,25 +170,27 @@ export const usePlanStore = defineStore('plan', {
       }
 
       try {
-        const response = await $fetch<{ content?: string; error?: string }>('/api/expand-step', {
+        const res = await fetch('/api/expand-step', {
           method: 'POST',
-          body: {
-            stepTitle,
-            context,
-            techName,
-            deepseekKey
-          },
-          timeout: 120000 // 深度生成通常需要 1~2 分钟，给予更多预留
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stepTitle, context, techName, deepseekKey }),
         })
-        if (response && response.content) {
+
+        if (!res.ok) {
+          this.error = `生成课件失败: HTTP ${res.status}`
+          return
+        }
+
+        const response: { content?: string; error?: string } = await res.json()
+        if (response.content) {
           this.setExpandedContent(stepTitle, response.content)
           this.error = null
-        } else if (response && response.error) {
+        } else if (response.error) {
           this.error = `生成课件失败: ${response.error}`
         }
       } catch (e: any) {
         console.error('Failed to expand step:', e)
-        this.error = '网络请求超时或 API 调用失败，请稍后刷新重试。'
+        this.error = '网络请求失败，请检查网络后重试。'
       }
     },
 

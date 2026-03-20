@@ -8,7 +8,7 @@ export const useLearningPlan = () => {
   const generatePlan = async () => {
     // 基础校验
     if (!planStore.form.techName.trim()) {
-      planStore.setError('请输入你想学习的框架或技术名称')
+      planStore.setError('请输入你想学习的内容')
       return
     }
 

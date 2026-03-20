@@ -82,6 +82,15 @@ export function parsePlanStructure(markdown: string): ParsedPlan {
 
   // 清除 intro 中可能残留的第一个阶段标题，因为 LearningStep 顶部已经有 Badge 了
   result.intro = result.intro.replace(/^##\s*.*阶段.*\n?/m, '').trim()
+
+  // 对每个 step 的 content 做换行修复：
+  // 将 "**xxx**：内容" 的内联模式拆成独立段落，确保正确渲染
+  result.steps.forEach(step => {
+    step.content = step.content
+      // 在每个 **bold**： 前插入双换行，确保成为独立段落
+      .replace(/(?<!\n\n)(\*\*[^*]+\*\*[：:])/g, '\n\n$1')
+      .trim()
+  })
   
   return result
 }

@@ -2,6 +2,7 @@
 import TechInput from '../components/form/TechInput.vue'
 import LevelSelect from '../components/form/LevelSelect.vue'
 import GoalSelect from '../components/form/GoalSelect.vue'
+import DomainInput from '../components/form/DomainInput.vue'
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue'
 import PlanDisplay from '../components/plan/PlanDisplay.vue'
 import QaPanel from '../components/qa/QaPanel.vue'
@@ -108,10 +109,10 @@ onMounted(() => {
           class="text-center transition-all duration-500 flex flex-col items-center mb-12"
         >
           <h1 class="text-4xl sm:text-5xl font-extrabold text-gray-900 tracking-tight mb-4">
-            输入技术盲区，输出<span class="text-brand-600">最佳实践</span>
+            输入学习目标，输出<span class="text-brand-600">专属课程</span>
           </h1>
           <p class="text-lg text-gray-500 max-w-xl font-medium">
-            对标各大培训机构精品课体系，为你量身定制全栈进阶蓝图。
+            无论编程、设计、金融还是其他领域，为你量身定制结构化学习路径。
           </p>
         </div>
 
@@ -122,6 +123,7 @@ onMounted(() => {
             <div class="border-t border-gray-50 my-6 h-px w-full"></div>
             <LevelSelect />
             <GoalSelect />
+            <DomainInput />
 
             <!-- 报错提示区 -->
             <div v-show="planStore.error" class="bg-red-50 text-red-600 text-sm px-4 py-3 rounded-xl flex items-start gap-2 border border-red-100">
@@ -151,7 +153,7 @@ onMounted(() => {
         <div v-if="planStore.status === 'fetching-docs' || planStore.status === 'generating'" class="flex flex-col items-center justify-center py-20 space-y-6 animate-fade-in">
            <LoadingSpinner class="w-12 h-12" />
            <div class="text-2xl font-black text-gray-900 tracking-tight">
-              {{ planStore.status === 'fetching-docs' ? '正在深挖技术文档...' : '金牌讲师正在为您编写课件...' }}
+              {{ planStore.status === 'fetching-docs' ? '正在搜索相关资料...' : '正在为你定制学习计划...' }}
            </div>
            <p class="text-gray-400 font-medium">预计耗时 15-30 秒，深度内容值得等待。</p>
         </div>

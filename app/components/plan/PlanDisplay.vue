@@ -26,12 +26,13 @@ const showRaw = computed(() => {
          !structure.value.outro
 })
 
-const handleExportOnlyNotes = () => {
-  const blob = new Blob([planStore.allNotesMarkdown], { type: 'text/markdown;charset=utf-8' })
+const handleExportCourse = () => {
+  const content = `# ${planStore.form.techName} 学习课件\n\n> 生成时间: ${new Date().toLocaleString()}\n\n---\n\n${planStore.planMarkdown}`
+  const blob = new Blob([content], { type: 'text/markdown;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `StudyNotes_${planStore.form.techName.replace(/\s+/g, '_')}.md`
+  a.download = `StudyCourse_${planStore.form.techName.replace(/\s+/g, '_')}.md`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -146,13 +147,13 @@ const handleExportOnlyNotes = () => {
         <MarkdownBlocks :content="structure.outro" />
       </div>
 
-      <!-- 快捷导出（仅笔记） -->
+      <!-- 快捷导出课件 -->
       <div v-if="planStore.status === 'done'" class="flex justify-center flex-wrap gap-4 mt-8 pt-4 pb-8 transition-all animate-fade-in">
-         <button @click="handleExportOnlyNotes" class="flex items-center gap-2 px-8 py-4 bg-gray-900 text-white rounded-2xl hover:bg-black group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-all shadow-xl active:scale-[0.98]">
+         <button @click="handleExportCourse" class="flex items-center gap-2 px-8 py-4 bg-gray-900 text-white rounded-2xl hover:bg-black group focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900 transition-all shadow-xl active:scale-[0.98]">
            <svg class="w-5 h-5 text-brand-400 group-hover:scale-110 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
            </svg>
-           <span class="font-black">导出纯净笔记课件 (.md)</span>
+           <span class="font-black">导出完整课件 (.md)</span>
          </button>
       </div>
 

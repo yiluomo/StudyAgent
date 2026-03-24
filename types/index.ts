@@ -117,6 +117,7 @@ export interface PlanState {
   rightSidebarOpen: boolean
   activeStepIndex: number
   expandedContent: Record<string, string>
+  quizzes: Record<string, QuizQuestion[]>
 }
 
 // ==================== 已保存的计划条目 ====================
@@ -128,6 +129,7 @@ export interface SavedPlan {
   expandedContent: Record<string, string>
   createdAt: number
   updatedAt: number
+  quizzes: Record<string, QuizQuestion[]>
 }
 
 // ==================== 学习进度（Phase 2）====================
@@ -136,4 +138,12 @@ export interface StepProgress {
   completedSteps: string[]  // 已完成步骤的 index list
   createdAt: number
   updatedAt: number
+}
+
+// ==================== 练习题 ==================== 
+export interface QuizQuestion {
+  question: string
+  options: string[]
+  answer: number
+  explanation: string
 }

@@ -3,6 +3,7 @@ import TechInput from '../components/form/TechInput.vue'
 import LevelSelect from '../components/form/LevelSelect.vue'
 import GoalSelect from '../components/form/GoalSelect.vue'
 import DomainInput from '../components/form/DomainInput.vue'
+import IntakeChat from '../components/form/IntakeChat.vue'
 import LoadingSpinner from '../components/ui/LoadingSpinner.vue'
 import PlanDisplay from '../components/plan/PlanDisplay.vue'
 import QaPanel from '../components/qa/QaPanel.vue'
@@ -10,12 +11,14 @@ import SidebarLeft from '../components/layout/SidebarLeft.vue'
 import SidebarRight from '../components/layout/SidebarRight.vue'
 import SettingModal from '../components/ui/SettingModal.vue'
 
-import { computed, watch, onMounted } from 'vue'
+import { computed, ref, watch, onMounted } from 'vue'
 import { usePlanStore } from '../stores/planStore'
 import { useLearningPlan } from '../composables/useLearningPlan'
 
 const planStore = usePlanStore()
 const { generatePlan } = useLearningPlan()
+
+const showIntakeChat = ref(false)
 
 const isGeneratingBtnDisabled = computed(() => {
   return planStore.isLoading || !planStore.form.techName.trim()
@@ -114,6 +117,21 @@ onMounted(() => {
           <p class="text-lg text-gray-500 max-w-xl font-medium">
             无论编程、设计、金融还是其他领域，为你量身定制结构化学习路径。
           </p>
+        </div>
+
+        <!-- 对话式规划入口 -->
+        <div v-if="!planStore.hasResult && planStore.status !== 'generating'" class="w-full max-w-2xl mb-4">
+          <IntakeChat v-if="showIntakeChat" @close="showIntakeChat = false" />
+          <button
+            v-else
+            @click="showIntakeChat = true"
+            class="w-full flex items-center justify-center gap-2 py-3 border border-dashed border-brand-300 text-brand-600 rounded-2xl text-sm font-bold hover:bg-brand-50 transition-all"
+          >
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+            </svg>
+            不知道学什么？让顾问帮你规划
+          </button>
         </div>
 
         <!-- 交互表单主区：仅在未生成结果时展示 -->

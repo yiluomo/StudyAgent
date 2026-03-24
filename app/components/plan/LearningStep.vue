@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import MarkdownBlocks from './MarkdownBlocks.vue'
+import StepQuiz from './StepQuiz.vue'
 import { useProgressStore } from '../../stores/progressStore'
 import { usePlanStore } from '../../stores/planStore'
 import { useSettingStore } from '../../stores/settingStore'
@@ -35,6 +36,16 @@ const handleLearn = async (e: Event) => {
       }
     }, 450)
   }
+}
+
+// 测验通过后自动触发（不需要手动点按钮）
+const handleLearnAuto = () => {
+  setTimeout(() => {
+    const planStructure = planStore.planMarkdown ? planStore.parsedPlan : null
+    if (planStructure && props.index < planStructure.steps.length - 1) {
+      planStore.setActiveStep(props.index + 1)
+    }
+  }, 1200)
 }
 
 const handleExpandStep = async () => {
@@ -178,6 +189,14 @@ const askAssistant = () => {
           <MarkdownBlocks :content="planStore.expandedContent[title]" />
         </div>
       </div>
+
+      <!-- 课时测验 -->
+      <StepQuiz
+        :step-index="index"
+        :title="title"
+        :context="content"
+        @passed="handleLearnAuto"
+      />
 
       <!-- 动作条 -->
       <div class="mt-10 flex flex-wrap items-center justify-between pt-6 border-t border-gray-100 gap-4">

@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import type { AppStatus, PlanState, StudyFormInput } from '../../types'
+import type { AppStatus, PlanState, StudyFormInput, QuizQuestion } from '../../types'
 import { parsePlanStructure } from '../composables/useMarkdownParser'
 
 /**
@@ -32,6 +32,7 @@ export const usePlanStore = defineStore('plan', {
     currentPlanId: null,
     activeStepIndex: 0,
     expandedContent: {},
+    quizzes: {},
 
     // UI 状态
     leftSidebarOpen: true,
@@ -122,6 +123,7 @@ export const usePlanStore = defineStore('plan', {
         planMarkdown: this.planMarkdown,
         notes: { ...this.notes },
         expandedContent: { ...this.expandedContent },
+        quizzes: { ...this.quizzes },
         createdAt: Date.now(),
         updatedAt: Date.now()
       }
@@ -145,6 +147,7 @@ export const usePlanStore = defineStore('plan', {
         this.planMarkdown = plan.planMarkdown
         this.notes = { ...plan.notes }
         this.expandedContent = { ...(plan.expandedContent || {}) }
+        this.quizzes = { ...(plan.quizzes || {}) }
         this.status = 'done'
         this.activeStepIndex = 0
       }
@@ -191,6 +194,46 @@ export const usePlanStore = defineStore('plan', {
       } catch (e: any) {
         console.error('Failed to expand step:', e)
         this.error = '网络请求失败，请检查网络后重试。'
+      }
+    },
+
+    // 缓存题目并同步存档
+    setQuiz(title: string, questions: QuizQuestion[]) {
+      this.quizzes[title] = questions
+      if (this.currentPlanId) {
+        const plan = this.savedPlans.find(p => p.id === this.currentPlanId)
+        if (plan) {
+          plan.quizzes = { ...(plan.quizzes || {}), [title]: questions }
+          plan.updatedAt = Date.now()
+        }
+      }
+      this.saveAllToStorage()
+    },
+
+    async generateQuizAction(stepTitle: string, context: string, techName: string, deepseekKey: string) {
+      if (!deepseekKey) {
+        this.error = '请先配置 DeepSeek API Key'
+        return
+      }
+      try {
+        const res = await fetch('/api/generate-quiz', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stepTitle, context, techName, deepseekKey }),
+        })
+        if (!res.ok) {
+          this.error = `生成题目失败: HTTP ${res.status}`
+          return
+        }
+        const data: { questions?: QuizQuestion[]; error?: string } = await res.json()
+        if (data.questions) {
+          this.setQuiz(stepTitle, data.questions)
+          this.error = null
+        } else {
+          this.error = `生成题目失败: ${data.error}`
+        }
+      } catch (e: any) {
+        this.error = '生成题目网络失败，请重试'
       }
     },
 
@@ -252,6 +295,8 @@ export const usePlanStore = defineStore('plan', {
       this.isCached = false
       this.planMarkdown = ''
       this.notes = {}
+      this.expandedContent = {}
+      this.quizzes = {}
       this.currentPlanId = null
     },
   },
